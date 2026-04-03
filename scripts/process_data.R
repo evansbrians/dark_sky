@@ -3,26 +3,53 @@
 
 library(tidyverse)
 
-# Path to spreadsheet (second part is the id of the file):
+# Path to the id of the file (without the top-level google sheets path):
 
-gs_url <-
-  file.path(
-    "https://docs.google.com/spreadsheets/d",
-    "1AnpepLklUc9GzxCWhiJ7USdv2BIrP-8Bb9hw-dmyqio"
-  )
+gs_aaron <- "1AnpepLklUc9GzxCWhiJ7USdv2BIrP-8Bb9hw-dmyqio"
+gs_jared <- "1YcuPuBNz_1wSAQ4WWCyvKXqGoPodmnpnLUXIPaVq_IA"
 
 # Read in all of the sheets and assign each:
 
-googlesheets4::sheet_names(gs_url) %>% 
+list(
+  "sticky_traps",
+  "pitfall_traps",
+  "treatments"
+) %>% 
   set_names() %>% 
   map(
-    ~ googlesheets4::read_sheet(gs_url, sheet = .x)
+    \(.sheet) {
+      lst(gs_aaron, gs_jared) %>% 
+        set_names(
+          names(.) %>% 
+            str_replace("gs_", "")
+        ) %>%
+        imap(
+          \(.student, .name) {
+            out_frame <- 
+              file.path(
+                "https://docs.google.com/spreadsheets/d", 
+                .student
+              ) %>% 
+              googlesheets4::read_sheet(sheet = .sheet)
+            if(nrow(out_frame) > 1) {
+              out_frame %>% 
+                mutate(
+                  observer = .name
+                )
+            } else {
+              NULL
+            }
+          }
+        ) %>% 
+        list_rbind() %>% 
+        distinct()
+    }
   ) %>% 
-  list2env(.GlobalEnv)
+  list2env(envir = .GlobalEnv)
 
-# Remove the assignment we will no longer need:
+# Remove the assignments we will no longer need:
 
-rm(gs_url)
+rm(gs_aaron, gs_jared)
 
 # process treatment data --------------------------------------------------
 
@@ -35,7 +62,8 @@ treatment_proc <-
     transect_id,
     date,
     treatment
-  )
+  ) %>% 
+  distinct()
 
 # Remove the assignment we will no longer need:
 
@@ -104,12 +132,13 @@ trap_data <-
           
           # Only count arthropods that are greater or equal to 2 mm:
           
-          n = sum(count[length >= 2]),
+          count = sum(count[length >= 2], na.rm = TRUE),
           .by = 
             c(
               transect_id, 
               date, 
-              trap_type
+              trap_type,
+              observer
             )
         )
     }
@@ -126,12 +155,16 @@ trap_data <-
     by = join_by(transect_id, date)
   ) %>% 
   
+  # Remove NA counts:
+  
+  drop_na(count) %>%
+  
   # Re-arrange the columns:
   
   select(
     transect_id:date,
     treatment,
-    trap_type:n
+    trap_type:count
   )
 
 # Remove unnecessary assignments:
@@ -141,4 +174,4 @@ rm(pitfall_traps, sticky_traps)
 # write to file -----------------------------------------------------------
 
 trap_data %>% 
-  write_rds("data/trap_data_aaron.rds")
+  write_rds("data/trap_data.rds")
