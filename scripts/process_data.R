@@ -3,11 +3,6 @@
 
 library(tidyverse)
 
-# Path to the id of the file (without the top-level google sheets path):
-
-gs_aaron <- "1AnpepLklUc9GzxCWhiJ7USdv2BIrP-8Bb9hw-dmyqio"
-gs_jared <- "1YcuPuBNz_1wSAQ4WWCyvKXqGoPodmnpnLUXIPaVq_IA"
-
 # Read in all of the sheets and assign each:
 
 list(
@@ -18,7 +13,13 @@ list(
   set_names() %>% 
   map(
     \(.sheet) {
-      lst(gs_aaron, gs_jared) %>% 
+      
+      # Path to the id of the file (without the top-level google sheets path):
+      
+      lst(
+        gs_aaron = "1AnpepLklUc9GzxCWhiJ7USdv2BIrP-8Bb9hw-dmyqio",
+        gs_jared =  "1YcuPuBNz_1wSAQ4WWCyvKXqGoPodmnpnLUXIPaVq_IA"
+      ) %>% 
         set_names(
           names(.) %>% 
             str_replace("gs_", "")
@@ -30,7 +31,10 @@ list(
                 "https://docs.google.com/spreadsheets/d", 
                 .student
               ) %>% 
-              googlesheets4::read_sheet(sheet = .sheet)
+              googlesheets4::read_sheet(
+                sheet = .sheet,
+                col_types = if(.sheet == "sticky_traps") "cDcdic" else NULL
+              )
             if(nrow(out_frame) > 1) {
               out_frame %>% 
                 mutate(
