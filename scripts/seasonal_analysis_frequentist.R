@@ -38,6 +38,7 @@ sticky <-
   ) %>% 
   select(
     transect_id:treatment,
+    minutes_deployed,
     count
   )
 
@@ -88,6 +89,36 @@ sticky %>%
 # stats -------------------------------------------------------------------
 
 # Make a formula list:
+
+formulas <- 
+  list(
+    light_only = "",
+    
+    # The additive model suggests that season influence the number of arthropods
+    # captured in traps, but not the influence of light vs. dark on the capture
+    # rate:
+    
+    additive = " + season",
+    
+    # The interaction model suggests that season influences arthropod response
+    # to light.
+    
+    interaction = " + season + treatment:season"
+  ) %>% 
+  map(
+    \(.x) {
+      
+      # Since we are interested in a season effect, a reasonable null hypothesis
+      # is that light impacts arthropod counts but season does not:
+      
+      str_c("count ~ treatment + (1 | transect_id)", .x) %>% 
+        
+        # Offset term accounts for how long a trap is open on a given night:
+        
+        str_c(" + offset(log(minutes_deployed))") %>% 
+        as.formula()
+    }
+  )
 
 formulas <-
   list(
