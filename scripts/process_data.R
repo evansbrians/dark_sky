@@ -33,7 +33,12 @@ list(
               ) %>% 
               googlesheets4::read_sheet(
                 sheet = .sheet,
-                col_types = if(.sheet == "sticky_traps") "cDcdic" else NULL
+                col_types = 
+                  if (.sheet == "sticky_traps") {
+                    "cDcdic"
+                  }  else if (.sheet == "treatments") {
+                    "c"
+                  } else NULL
               )
             if(nrow(out_frame) > 1) {
               out_frame %>% 
@@ -59,13 +64,27 @@ rm(gs_aaron, gs_jared)
 
 treatment_proc <-
   treatments %>% 
+  drop_na(light_on, close_dark) %>% 
   mutate(
-    date = as_date(deploy_date)
+    across(
+      c(light_on, close_dark),
+      ~ str_c(deploy_date, .x) %>% 
+        ymd_hm()
+    ),
+    close_dark = close_dark + days(1)
   ) %>% 
-  select(
+  mutate(
     transect_id,
-    date,
-    treatment
+    date = as_date(deploy_date),
+    minutes_deployed = 
+      difftime(
+        close_dark, 
+        light_on, 
+        units = "mins"
+      ) %>% 
+      as.numeric(),
+    treatment,
+    .keep = "none"
   ) %>% 
   distinct()
 
@@ -161,13 +180,14 @@ trap_data <-
   
   # Remove NA counts:
   
-  drop_na(count) %>%
+  drop_na(treatment, count) %>%
   
   # Re-arrange the columns:
   
   select(
     transect_id:date,
     treatment,
+    minutes_deployed,
     trap_type:count
   )
 
